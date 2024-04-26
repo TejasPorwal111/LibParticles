@@ -300,17 +300,4 @@ namespace LibParticle
             return backgroundColors[index];
         }
     }
-    /*
-    public class ClassParticle
-    {
-        private static MyParticals Mp1 = new MyParticals();
-        
-
-        public static void SetParticleColor(Color [] colors)
-        { 
-            Mp1.colors = colors;
-        }
-    }
-    */
-    
 }
