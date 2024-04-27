@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using Microsoft.Win32.SafeHandles;
 using Color = System.Drawing.Color;
 using Timer = System.Windows.Forms.Timer;
 
@@ -14,32 +15,45 @@ namespace LibParticle
         private float y;
         private float size;
         private float speedX;
-        private float speedY; 
-        private Color [] _color;
+        private float speedY;
+        private static Color[] _color;
         private Color color;
-        private int shapeType; // 0-4: Circles, 5: Small Triangles, 6: Lines
-        private float glowsize;
-        private int blursteps;
-        public int maxparticles;
-        public int changetime;
+
+        private int shapeType = 5;
+        //private int shapeType; // 0-4: Circles, 5: Small Triangles, 6: Lines
+        private static float glowsize;
+        private static int blursteps;
+        public static int maxparticles;
+        public static int changetime;
+        public enum Shapetype
+        {
+            circle,
+            Lines,
+            Triangle,
+            Mixed
+        }
         public enum glowtype
         {
             Neon,
             Bubble,
             Shadow,
-            Neon_Bubble
+            Neon_Bubble,
+            None
         }
 
-        private glowtype myglowtype;
-        public Particle(int shapeType, float glowsize, int blursteps, int maxparticles , int changetime, Color[] color , glowtype myglowtype)
+        private static Shapetype myShapetype;
+        private static glowtype myglowtype;
+        public static void Particleinit(Shapetype shapeType, float glsize, int bsteps, int mparticles, int changet, Color[] color, glowtype mygtype)
         {
-            this.glowsize = glowsize;
-            this.blursteps = blursteps;
-            this.maxparticles = maxparticles;
-            this.changetime = changetime;
-            this._color = new Color[color.Length];
-            /*this._color =*/ color.CopyTo(this._color , 0);
-            this.myglowtype = myglowtype;
+            myShapetype = shapeType;
+            glowsize = glsize;
+            blursteps = bsteps;
+            maxparticles = mparticles;
+            changetime = changet;
+            _color = new Color[color.Length];
+            /*this._color =*/
+            color.CopyTo(_color, 0);
+            myglowtype = mygtype;
         }
         public Particle(float x, float y, float size, float speedX, float speedY, Color color, int shapeType )
         {
@@ -51,6 +65,7 @@ namespace LibParticle
             this.color = color;
             this.shapeType = shapeType;
         }
+
 
         public void Update()
         {
@@ -84,21 +99,24 @@ namespace LibParticle
 
                     using (Brush blurBrush = new SolidBrush(blurColor))
                     {
-                        if (shapeType < 5) // Circle
+                        if (myShapetype == Shapetype.circle || myShapetype == Shapetype.Mixed && shapeType < 5)
                         {
-                            graphics.FillEllipse(blurBrush, x - size / 2 - blurRadius, y - size / 2 - blurRadius, size + 2 * blurRadius, size + 2 * blurRadius);
+                            graphics.FillEllipse(blurBrush, x - size / 2 - blurRadius, y - size / 2 - blurRadius,
+                                size + 2 * blurRadius, size + 2 * blurRadius);
                         }
-                        else if (shapeType == 5) // Triangle
+
+                        if (myShapetype == Shapetype.Lines || myShapetype == Shapetype.Mixed && shapeType == 5)
+                        {
+                            graphics.DrawLine(new Pen(blurBrush, blurRadius), x - size / 2, y, x + size / 2, y);
+                        }
+
+                        if (myShapetype == Shapetype.Triangle || myShapetype == Shapetype.Mixed && shapeType == 6)
                         {
                             PointF[] points = new PointF[3];
                             points[0] = new PointF(x, y - size / 2 - blurRadius);
                             points[1] = new PointF(x + size / 2 + blurRadius, y + size / 2 + blurRadius);
                             points[2] = new PointF(x - size / 2 - blurRadius, y + size / 2 + blurRadius);
                             graphics.FillPolygon(blurBrush, points);
-                        }
-                        else if (shapeType == 6) // Line
-                        {
-                            graphics.DrawLine(new Pen(blurBrush, blurRadius), x - size / 2, y, x + size / 2, y);
                         }
                     }
                 }
@@ -111,14 +129,25 @@ namespace LibParticle
 
                 using (Pen glowPen = new Pen(glowColor, gsize))
                 {
-                    if (shapeType < 5) // Circles
+                    if (myShapetype == Shapetype.circle || myShapetype == Shapetype.Mixed && shapeType <5)
                     {
                         graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
                         graphics.DrawEllipse(glowPen, x - size / 2 - gsize, y - size / 2 - gsize, size + 2 * gsize, size + 2 * gsize);
                     }
-                    // Add additional cases for other shape types (triangles, lines) if needed
+                    else if (myShapetype == Shapetype.Lines || myShapetype == Shapetype.Mixed && shapeType == 5)
+                    {
+                        graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                        graphics.DrawLine(glowPen, x - size / 2, y, x + size / 2, y);
+                    }
+                    else if (myShapetype == Shapetype.Triangle || myShapetype == Shapetype.Mixed && shapeType == 6)
+                    {
+                        PointF[] points = new PointF[3];
+                        points[0] = new PointF(x, y - size / 2 - gsize);
+                        points[1] = new PointF(x + size / 2 + gsize, y + size / 2 + gsize);
+                        points[2] = new PointF(x - size / 2 - gsize, y + size / 2 + gsize);
+                        graphics.DrawPolygon(glowPen, points);
+                    }
                 }
-
             }
 
             if (myglowtype == glowtype.Neon_Bubble)
@@ -130,7 +159,8 @@ namespace LibParticle
                 {
                     graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
 
-                    RectangleF glowRect = new RectangleF(x - size / 2 - gsize, y - size / 2 - gsize, size + 2 * gsize, size + 2 * gsize);
+                    RectangleF glowRect = new RectangleF(x - size / 2 - gsize, y - size / 2 - gsize, size + 2 * gsize,
+                        size + 2 * gsize);
                     using (GraphicsPath path = new GraphicsPath())
                     {
                         path.AddEllipse(glowRect);
@@ -155,35 +185,38 @@ namespace LibParticle
                 {
                     float blurRadius = gsize * (i + 1) / nBlurSteps;
 
-                    using (Brush glowBrush = new SolidBrush(Color.FromArgb(10, color))) // Adjust opacity (20) for the glow color
+                    using (Brush glowBrush =
+                           new SolidBrush(Color.FromArgb(10, color))) // Adjust opacity (20) for the glow color
                     {
-                        if (shapeType < 5) // Circles
+                        if (myShapetype == Shapetype.circle || myShapetype == Shapetype.Mixed && shapeType < 5)
                         {
                             graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-                            graphics.FillEllipse(glowBrush, x - blurRadius / 2, y - blurRadius / 2, size + blurRadius, size + blurRadius);
+                            graphics.FillEllipse(glowBrush, x - blurRadius / 2, y - blurRadius / 2, size + blurRadius,
+                                size + blurRadius);
                         }
-                        else if (shapeType == 5) // Small Triangles
+
+                        if (myShapetype == Shapetype.Triangle || myShapetype == Shapetype.Mixed && shapeType == 6)
                         {
+                            graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
                             PointF[] points = new PointF[3];
                             points[0] = new PointF(x, y - size / 2);
                             points[1] = new PointF(x + size / 2, y + size / 2);
                             points[2] = new PointF(x - size / 2, y + size / 2);
-                            graphics.FillPolygon(glowBrush, points);
+                            graphics.FillPolygon(glowBrush, points); //triangle
                         }
-                        else if (shapeType == 6) // Lines
+
+                        if (myShapetype == Shapetype.Lines || myShapetype == Shapetype.Mixed && shapeType == 5)
                         {
-                            graphics.DrawLine(new Pen(glowBrush), x - size / 2, y, x + size / 2, y);
+                            graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                            graphics.DrawLine(new Pen(glowBrush), x - size / 2, y, x + size / 2, y); //lines
                         }
                     }
                 }
             }
+
             using (Brush brush = new SolidBrush(color))
             {
-                if (shapeType < 5) // Circles
-                {
-                    graphics.FillEllipse(brush, x - size / 2, y - size / 2, size, size);
-                }
-                else if (shapeType == 5) // Small Triangles
+                if (myShapetype == Shapetype.Triangle || myShapetype == Shapetype.Mixed && shapeType == 6)
                 {
                     PointF[] points = new PointF[3];
                     points[0] = new PointF(x, y - size / 2);
@@ -191,13 +224,19 @@ namespace LibParticle
                     points[2] = new PointF(x - size / 2, y + size / 2);
                     graphics.FillPolygon(brush, points);
                 }
-                else if (shapeType == 6) // Lines
+
+                if (myShapetype == Shapetype.Lines || myShapetype == Shapetype.Mixed && shapeType == 5)
                 {
                     graphics.DrawLine(new Pen(brush), x - size / 2, y, x + size / 2, y);
                 }
-            }
-        }
 
+                if (myShapetype == Shapetype.circle || myShapetype == Shapetype.Mixed && shapeType < 5 )
+                {
+                    graphics.FillEllipse(brush, x - size / 2, y - size / 2, size, size);
+                }
+            }
+
+        }
 
         public void ChangeColor(Color newColor)
         {
@@ -211,10 +250,10 @@ namespace LibParticle
         private Random random;
         public Color[] colors;
         private int currentColorIndex;
-        private Particle pt;
+        //private Particle pt;
         private int formWidth;
         private int formHeight;
-        public ParticleSystem(int shapeType,float glowsize, int blursteps, int maxparticles, int changetime, Color[] color, Particle.glowtype myglowtype, int formWidth, int formHeight)
+        public ParticleSystem(Particle.Shapetype shapeType, float glowsize, int blursteps, int maxparticles, int changetime, Color[] color, Particle.glowtype myglowtype, int formWidth, int formHeight)
         {
             particles = new List<Particle>();
             timer = new Timer();
@@ -228,7 +267,7 @@ namespace LibParticle
             currentColorIndex = 0;
             this.colors = color;
             //color.CopyTo(this.colors, 0);
-            pt = new Particle(shapeType,glowsize, blursteps, maxparticles, changetime, this.colors, myglowtype);
+            Particle.Particleinit(shapeType, glowsize, blursteps, maxparticles, changetime, this.colors, myglowtype);
         }
         public static int mode = 0;
         #region Particles
@@ -253,7 +292,7 @@ namespace LibParticle
             }
 
             // Change color every 7 seconds
-            if (DateTime.Now.Second % pt.changetime == 0)
+            if (DateTime.Now.Second % Particle.changetime == 0)
             {
                 currentColorIndex = (currentColorIndex + 1) % colors.Length;
                 foreach (Particle particle in particles)
@@ -266,7 +305,7 @@ namespace LibParticle
         private void InitializeParticles()
         {
             particles.Clear(); // Clear existing particles
-            int numParticles = pt.maxparticles; // Number of particles to create
+            int numParticles = Particle.maxparticles; // Number of particles to create
 
             for (int i = 0; i < numParticles; i++)
             {
